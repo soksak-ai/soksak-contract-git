@@ -50,12 +50,24 @@ async function runCase(c, host, fx, waitFor, eventTimeoutMs) {
       continue;
     }
     const params = typeof step.params === "function" ? step.params(fx) : (step.params ?? {});
+    const before = host.spawnLog.length;
     const res = await host.execute(step.cmd, params);
     const expected = typeof step.expect === "function" ? step.expect(fx) : step.expect;
     const bad = match(res, expected, `${at} ${step.cmd}`);
     if (bad.length > 0) {
       failures.push(...bad.map((b) => `${b} — answered ${JSON.stringify(res)}`));
       break; // a lifecycle whose first step failed cannot score its later steps honestly
+    }
+    // "Nothing was invoked" is half of a refusal (SPEC §3): an implementer that runs the command and
+    // then reports the failure has already passed the hostile input to the tool.
+    if (step.noSpawn) {
+      const ran = host.spawnLog.slice(before);
+      if (ran.length > 0) {
+        failures.push(
+          `${at} ${step.cmd}: refused, but invoked anyway — ${ran.map((s) => s.args.join(" ")).join(" | ")}`,
+        );
+        break;
+      }
     }
   }
   return { id: c.id, section: c.section, ok: failures.length === 0, failures };

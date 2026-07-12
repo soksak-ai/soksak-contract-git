@@ -11,7 +11,7 @@ import { contains, count, lacks, nonEmpty, pred, sha, setBy } from "./expect.js"
 const ok = (data) => ({ ok: true, data });
 const refuses = (code) => ({ ok: false, code });
 
-export const cases = [
+const baseCases = [
   // ── §5 discovery ────────────────────────────────────────────────────────────
   {
     id: "root.repo",
@@ -113,7 +113,14 @@ export const cases = [
   {
     id: "show.rejectsOption",
     section: "show",
-    steps: [{ cmd: "show", params: (fx) => ({ path: fx.repo, commit: "--help" }), expect: () => refuses("INVALID_REF") }],
+    steps: [
+      {
+        cmd: "show",
+        params: (fx) => ({ path: fx.repo, commit: "--help" }),
+        expect: () => refuses("INVALID_REF"),
+        noSpawn: true,
+      },
+    ],
   },
 
   // ── §7.2 two-point diff ─────────────────────────────────────────────────────
@@ -307,9 +314,11 @@ export const cases = [
         cmd: "merge",
         params: (fx) => ({ path: fx.mergeRepo, target: "--upload-pack=touch" }),
         expect: () => refuses("INVALID_REF"),
+        noSpawn: true,
       },
     ],
   },
+
   {
     id: "merge.branch",
     section: "merge",
@@ -331,10 +340,173 @@ export const cases = [
       },
     ],
   },
+
+];
+
+// A path parameter is repository-relative and proven so before anything runs (SPEC §3). Absolute,
+// escaping, option-shaped, and NUL-bearing paths are all the same answer: INVALID_PATH, no
+// invocation. NUL matters on its own: it cannot be passed to a process at all, so an implementer
+// that lets it reach the spawn crashes instead of refusing — a crash is not a refusal.
+const HOSTILE_PATHS = [
+  ["escaping", "../../etc/passwd"],
+  ["absolute", "/etc/passwd"],
+  ["option-shaped", "--output=/tmp/x"],
+  ["nul-bearing", "a b"],
+];
+
+// Refs and branches carry the same rule, and the option-injection payloads are the ones that
+// actually matter: git's own arguments (--upload-pack, --output) are how a ref becomes a command.
+const HOSTILE_REFS = ["-x", "--upload-pack=touch /tmp/pwned", "main..feat/x", "a\nb", "x.lock", "../../etc"];
+
+const hostile = [
+  ...HOSTILE_PATHS.map(([why, file]) => ({
+    id: `hostile.diff.path.${why}`,
+    section: "hostile",
+    steps: [
+      { cmd: "diff", params: (fx) => ({ path: fx.repo, file }), expect: () => refuses("INVALID_PATH"), noSpawn: true },
+    ],
+  })),
+  ...HOSTILE_PATHS.map(([why, file]) => ({
+    id: `hostile.diff.range.path.${why}`,
+    section: "hostile",
+    steps: [
+      {
+        cmd: "diff.range",
+        params: (fx) => ({ path: fx.repo, base: BASE_BRANCH, target: FEAT_BRANCH, file }),
+        expect: () => refuses("INVALID_PATH"),
+        noSpawn: true,
+      },
+    ],
+  })),
+  ...["stage", "unstage", "discard"].flatMap((cmd) =>
+    HOSTILE_PATHS.map(([why, file]) => ({
+      id: `hostile.${cmd}.path.${why}`,
+      section: "hostile",
+      steps: [
+        {
+          // A destructive command reaching a path outside the repository is the whole nightmare:
+          // `discard` deletes. It proves the path before it runs, or it does not run.
+          cmd,
+          params: (fx) => ({ path: fx.repo, files: ["a.txt", file] }),
+          expect: () => refuses("INVALID_PATH"),
+          noSpawn: true,
+        },
+      ],
+    })),
+  ),
+  ...HOSTILE_REFS.map((ref) => ({
+    id: `hostile.diff.range.ref.${JSON.stringify(ref)}`,
+    section: "hostile",
+    steps: [
+      {
+        cmd: "diff.range",
+        params: (fx) => ({ path: fx.repo, base: BASE_BRANCH, target: ref }),
+        expect: () => refuses("INVALID_REF"),
+        noSpawn: true,
+      },
+      {
+        // The base is an argument too. A whitelist that guards one ref and not the other guards
+        // nothing — the attacker picks the parameter.
+        cmd: "diff.range",
+        params: (fx) => ({ path: fx.repo, base: ref, target: FEAT_BRANCH }),
+        expect: () => refuses("INVALID_REF"),
+        noSpawn: true,
+      },
+    ],
+  })),
+  ...HOSTILE_REFS.map((ref) => ({
+    id: `hostile.merge.ref.${JSON.stringify(ref)}`,
+    section: "hostile",
+    steps: [
+      {
+        cmd: "merge",
+        params: (fx) => ({ path: fx.mergeRepo, target: ref }),
+        expect: () => refuses("INVALID_REF"),
+        noSpawn: true,
+      },
+    ],
+  })),
+  ...HOSTILE_REFS.map((ref) => ({
+    id: `hostile.branch.${JSON.stringify(ref)}`,
+    section: "hostile",
+    steps: [
+      {
+        cmd: "branch.exists",
+        params: (fx) => ({ path: fx.repo, branch: ref }),
+        expect: () => refuses("INVALID_BRANCH"),
+        noSpawn: true,
+      },
+      {
+        cmd: "worktree.add",
+        params: (fx) => ({ path: fx.repo, branch: ref, dir: path.join(fx.root, "wt-hostile") }),
+        expect: () => refuses("INVALID_BRANCH"),
+        noSpawn: true,
+      },
+      {
+        // The base of a new worktree is a ref like any other.
+        cmd: "worktree.add",
+        params: (fx) => ({ path: fx.repo, branch: "wt/ok", base: ref, dir: path.join(fx.root, "wt-hostile") }),
+        expect: () => refuses("INVALID_REF"),
+        noSpawn: true,
+      },
+    ],
+  })),
+  {
+    // A clone URL carrying credentials is refused, and this is not squeamishness: git writes the
+    // URL it was given into .git/config verbatim, so the token lands on disk in plaintext and stays
+    // there. The parameter also crosses the host's command surface, which records it. Credentials
+    // belong to the credential helper — an implementer that accepts them in a parameter has made a
+    // secret store out of an argument.
+    id: "hostile.clone.credentialUrl",
+    section: "hostile",
+    steps: [
+      {
+        cmd: "clone",
+        params: (fx) => ({ path: fx.root, url: "https://alice:s3cr3t-token@example.invalid/repo.git" }),
+        expect: () => refuses("INVALID_URL"),
+        noSpawn: true,
+      },
+      {
+        cmd: "clone",
+        params: (fx) => ({ path: fx.root, url: "https://token@example.invalid/repo.git" }),
+        expect: () => refuses("INVALID_URL"),
+        noSpawn: true,
+      },
+    ],
+  },
+  {
+    id: "hostile.clone.optionUrl",
+    section: "hostile",
+    steps: [
+      {
+        cmd: "clone",
+        params: (fx) => ({ path: fx.root, url: "--upload-pack=touch /tmp/pwned" }),
+        expect: () => refuses("INVALID_URL"),
+        noSpawn: true,
+      },
+    ],
+  },
+  {
+    id: "hostile.clone.optionDir",
+    section: "hostile",
+    steps: [
+      {
+        cmd: "clone",
+        params: (fx) => ({ path: fx.root, url: "https://example.invalid/repo.git", dir: "--upload-pack=x" }),
+        expect: () => refuses("INVALID_URL"),
+        noSpawn: true,
+      },
+    ],
+  },
 ];
 
 const mergedHistory = pred("3 commits, including the branch's own", (v) =>
   Array.isArray(v) && v.length === 3 && v.some((c) => c?.subject === FEAT_SUBJECT));
+
+// The surface, then the refusals. A hostile case refuses AND proves nothing ran: an implementer
+// that invokes git and then reports git's complaint has already handed the hostile input to the
+// tool, and "it failed anyway" is luck, not a guarantee.
+export const cases = [...baseCases, ...hostile];
 
 // ── the execution convention (SPEC §3) ────────────────────────────────────────
 // Scored over every invocation the implementer made through the process capability it was handed.

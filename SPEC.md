@@ -4,11 +4,15 @@ The **git domain contract**: the command surface a plugin exposes when it owns g
 soksak project, and the promises that surface carries.
 
 This contract exists so that a plugin needing a repository — a worktree, a diff, a merge, a commit
-list — gets it **without naming the plugin that runs git**, and without running git itself. Git
-execution carries rules that are not optional: an environment that makes output parseable, a
-whitelist that makes a user-supplied ref safe, a timeout that makes a hang loud. A plugin family
-in which each member re-derives those rules holds one rule and N liabilities — the copy that got
-them wrong is the one that ships. They are stated once, here, and scored once, here.
+list — gets it **without naming the plugin that runs git**, and without running git itself.
+
+Duplicated git runners are an inefficiency. **Duplicated defenses are a security debt**, and that is
+the real reason this contract exists. Every plugin that runs git must independently reject the same
+hostile inputs: a ref that is really an option (`--upload-pack=…`), a path that escapes the
+repository (`../../etc/passwd`), a branch name carrying `..`, a URL carrying a token. Each copy of
+that whitelist is a place it can be written slightly wrong, and the wrong one does not announce
+itself — it works, right up until it is the one that ships. N copies of a defense is one defense and
+N−1 liabilities. Stated once, here. Scored once, here (§3, §8).
 
 **This is a command-surface contract, not a git CLI wrapper.** It says what a consumer may ask for
 and what the answer means. It never says the implementer must spawn `git` — an implementer built on
@@ -19,6 +23,11 @@ difference except where this document makes the execution convention itself norm
 `contract`, bare domain). The id is `soksak-git-spec` (NAMING §8: `<scope>-spec@<major>`). This
 repository ships nothing: no `dist`, no registry entry, no installed artifact. Implementers and
 consumers take it as a dev-dependency, and that is the only way it is consumed.
+
+**On an implementer's name.** The `-core` in `soksak-plugin-git-core` is historical. It does not mean
+"part of the core", and it confers no standing: git left the core, and this contract — not that
+plugin — is now the domain's single truth. It is one implementer among however many declare
+`soksak-git-spec`, and nothing in this document knows its name.
 
 ## 1. Discovery
 
@@ -77,7 +86,12 @@ A consumer stops validating refs and stops fixing environments only if the imple
 It does:
 
 - **Locale is fixed.** Every git invocation runs under `LC_ALL=C` and `LANG=C`. A parser that reads
-  git's output must never see a translated string.
+  git's output must never see a translated string. This is not hypothetical: on a Korean-locale
+  machine, `git rev-parse` in a repository with a corrupt `.git` answers
+  `fatal: 깃파일 형식이 잘못되었습니다`, and the one sanctioned stderr discrimination below
+  (`not a git repository`) silently stops matching — `root` then reports `not-repo` for a broken
+  repository, and a consumer initializes on top of it. The locale pin is what makes that sentence a
+  stable string instead of a translation.
 - **A read never takes a lock.** Read commands run under `GIT_OPTIONAL_LOCKS=0`, so a query cannot
   make the index churn and cannot pollute the change events of §6.
 - **Machine output only.** Anything parsed is a porcelain, NUL-delimited (`-z`) form or an explicit
@@ -85,13 +99,36 @@ It does:
   the `not a git repository` discrimination of `root` (§4), which the fixed locale makes stable.
 - **Timeouts are bounded and loud.** A read that exceeds its bound and a write that exceeds its bound
   both fail; neither hangs. A timed-out invocation is killed, not orphaned.
-- **Input is rejected, never escaped.** Refs, branch names, and commits pass a whitelist *before* any
-  invocation: a leading `-` (option injection), `..` (traversal / range syntax), a trailing `/`,
-  `.`, or `.lock` are refused. Paths are passed behind a `--` boundary. A rejection is
-  `INVALID_REF` / `INVALID_BRANCH` — never a mangled input that runs anyway.
+- **Input is rejected, never escaped, and nothing runs.** A refusal has two halves, and an
+  implementer that delivers only the first has failed: the input is refused **and no invocation was
+  made**. "git rejected it anyway" is not a defense — it is luck, it depends on the version of a tool
+  this contract does not own, and it has already handed the hostile string to that tool.
+
+  - **Refs, branches, commits** pass a whitelist before anything runs: a leading `-` (an option
+    wearing a ref's clothes — `--upload-pack=touch /tmp/pwned` is a command, not a branch), `..`
+    (traversal and range syntax — the three-dot range of §7.3 is assembled *by the implementer*, so
+    it never arrives as input), a trailing `/`, `.`, or `.lock`, and any control character. Every ref
+    parameter is checked, not just the interesting one: `base` and `target` are both arguments, and a
+    whitelist guarding one of them guards nothing — the attacker picks the parameter.
+    → `INVALID_REF` / `INVALID_BRANCH`.
+  - **Paths** are repository-relative and proven so before anything runs: absolute, escaping (`..`),
+    option-shaped (leading `-`), or carrying a control character — all refused. NUL earns its own
+    sentence: it cannot be placed in an argument at all, so an implementer that lets it reach the
+    spawn **crashes instead of refusing**, and a crash is not a refusal. A proven path then rides
+    behind the `--` boundary. → `INVALID_PATH`, and the same code from every command that takes a
+    path: `discard` deletes, and a rule that is strict in one command and lax in another is the lax
+    one.
+  - **Clone URLs** carry no credentials. `https://user:token@host/repo.git` is refused
+    (`INVALID_URL`) — not out of squeamishness, but because git writes the URL it is given verbatim
+    into `.git/config` as `remote.origin.url`, so the token lands on disk in plaintext and stays
+    there, and because the parameter itself crosses the host's command surface, which records it.
+    Credentials belong to the credential helper; an implementer that accepts them in an argument has
+    made a secret store out of a parameter. An SSH username (`git@host:path`, `ssh://git@host/…`)
+    is not a credential and is allowed.
 
 These are not implementation notes. They are the reason a consumer is allowed to pass a
-user-supplied branch name straight through, and the acceptance suite scores them (§8).
+user-supplied branch name straight through, and the acceptance suite scores them — including the
+"nothing ran" half, by watching what the implementer actually invoked (§8).
 
 ## 4. Failure
 
@@ -103,10 +140,27 @@ plus `data` on success. Declared codes:
 | `NO_PATH` | No `path` and no current project. The command did not run. |
 | `INVALID_REF` | A ref/commit failed the whitelist (§3). Nothing was invoked. |
 | `INVALID_BRANCH` | A branch name failed the whitelist (§3). Nothing was invoked. |
+| `INVALID_PATH` | A path is not repository-relative (§3). Nothing was invoked. |
+| `INVALID_URL` | A clone URL is option-shaped or carries credentials (§3). Nothing was invoked. |
 | `GIT_ERROR` | git itself refused. `message` carries git's own `stderr`, **unparsed**. |
 
 An implementer MAY add codes. A consumer MUST NOT require them, and MUST NOT parse `message` — the
 message is for a human, and the code is the machine's fact.
+
+**`GIT_ERROR` carries git's words, and the implementer adds none of its own.** The stderr is passed
+through: it is the only honest account of why git refused, and an implementer that summarizes it has
+replaced a cause with a guess. It is never parsed to make a decision (§3) — with the single sanctioned
+exception in §5.
+
+**Can that text leak a secret?** The judgment, and it is the reason for the `INVALID_URL` rule above:
+a secret can only appear in git's stderr if the implementer put it in the invocation, and the only
+parameter that could carry one is a credential-bearing URL — which is refused before anything runs.
+Nothing else this contract accepts is a secret: refs, branches, paths, and messages are repository
+content, and a consumer that treats a branch name as confidential has misunderstood where it lives.
+Git's own credential helper output never reaches `stderr` as plaintext, and this contract never sets
+`GIT_ASKPASS` or passes a token in the environment. So the pass-through is safe **because the input
+gate is**, which is the same reason the whitelist exists at all: what a surface refuses to accept, it
+cannot later be asked to redact.
 
 ## 5. Discovery of the repository
 

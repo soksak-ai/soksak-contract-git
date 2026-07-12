@@ -107,6 +107,16 @@ export function createHost({ projectRoot = null, locale = "en" } = {}) {
       },
       execute,
     },
+    // Long-running commands stream progress through the host (the core's events surface). The suite
+    // records it rather than swallowing it — a progress line is where a clone's URL would surface.
+    events: {
+      progress(kind, payload) {
+        events.push({ topic: `progress:${kind}`, payload });
+      },
+      on() {
+        return { dispose: () => {} };
+      },
+    },
     bus: {
       emit(topic, payload) {
         events.push({ topic, payload });
