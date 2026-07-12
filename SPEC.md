@@ -4,10 +4,11 @@ The **git domain contract**: the command surface a plugin exposes when it owns g
 soksak project, and the promises that surface carries.
 
 This contract exists so that a plugin needing a repository — a worktree, a diff, a merge, a commit
-list — gets it **without naming the plugin that runs git**, and without running git itself. Before
-this contract there were three git runners in the plugin family (a library plugin, a workspace
-plugin, a review plugin), each re-deriving the same environment fixation, the same timeouts, and
-the same input-rejection rules. Three copies of a security rule is one rule and two liabilities.
+list — gets it **without naming the plugin that runs git**, and without running git itself. Git
+execution carries rules that are not optional: an environment that makes output parseable, a
+whitelist that makes a user-supplied ref safe, a timeout that makes a hang loud. A plugin family
+in which each member re-derives those rules holds one rule and N liabilities — the copy that got
+them wrong is the one that ships. They are stated once, here, and scored once, here.
 
 **This is a command-surface contract, not a git CLI wrapper.** It says what a consumer may ask for
 and what the answer means. It never says the implementer must spawn `git` — an implementer built on
