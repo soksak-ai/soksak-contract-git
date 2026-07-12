@@ -38,14 +38,35 @@ async function runCase(c, host, fx, waitFor, eventTimeoutMs) {
   for (const [i, step] of c.steps.entries()) {
     const at = `step ${i + 1}`;
     if (step.touch) {
-      fs.writeFileSync(step.touch(fx), `${Date.now()}\n`);
-      if (step.awaitEvent) {
+      const target = step.touch(fx);
+      if (!step.awaitEvent) {
+        fs.writeFileSync(target, `${Date.now()}\n`);
+        continue;
+      }
+      // The stimulus is repeated until the event arrives. The assertion is unchanged — a real
+      // filesystem-driven event is still required. An OS watcher arms asynchronously, so a single
+      // write can land in the gap before it is listening, and then nothing ever changes again: the
+      // edge is lost and the wait times out on a pipeline that works.
+      //
+      // The repeat is DELIBERATELY slower than any sane debounce window. An implementer coalesces a
+      // burst of filesystem changes with a trailing debounce, and a stimulus faster than that window
+      // resets the timer on every tick — the event never fires, and the suite would be scoring its
+      // own drumming rather than the implementer.
+      const stimulus = setInterval(() => {
         try {
-          await waitFor((p) => p?.kind === step.awaitEvent.kind, eventTimeoutMs);
-        } catch (e) {
-          failures.push(`${at}: ${e.message}`);
-          break;
+          fs.writeFileSync(target, `${Date.now()}\n`);
+        } catch {
+          /* the fixture is gone — the wait below will report it */
         }
+      }, 1000);
+      try {
+        fs.writeFileSync(target, `${Date.now()}\n`);
+        await waitFor((p) => p?.kind === step.awaitEvent.kind, eventTimeoutMs);
+      } catch (e) {
+        failures.push(`${at}: ${e.message}`);
+        break;
+      } finally {
+        clearInterval(stimulus);
       }
       continue;
     }
