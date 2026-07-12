@@ -1,0 +1,18 @@
+{
+  "spec": "soksak-spec-plugin@0.0.1",
+  "id": "soksak-plugin-namepin-git",
+  "name": {
+    "en": "Name-pinning consumer",
+    "ko": "이름-핀 소비자"
+  },
+  "version": "0.0.1",
+  "description": {
+    "en": "Speaks the contract's name and then calls an implementer by name anyway. Exists so the consumer audit can prove it catches exactly that.",
+    "ko": "계약 이름을 말하면서 구현체를 이름으로 부릅니다. 소비자 감사가 바로 그것을 잡는지 증명하기 위해 존재합니다."
+  },
+  "entry": "main.js",
+  "permissions": [
+    "commands"
+  ],
+  "contributes": {}
+}

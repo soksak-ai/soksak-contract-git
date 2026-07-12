@@ -1,0 +1,18 @@
+{
+  "spec": "soksak-spec-plugin@0.0.1",
+  "id": "soksak-plugin-blind-git",
+  "name": {
+    "en": "Contract-blind consumer",
+    "ko": "계약만 인용하는 소비자"
+  },
+  "version": "0.0.1",
+  "description": {
+    "en": "Quotes the contract id but never resolves an implementer. Exists so the audit can prove it catches decoration.",
+    "ko": "계약 id 를 인용만 하고 구현체를 해소하지 않습니다. 감사가 장식을 잡는지 증명하기 위해 존재합니다."
+  },
+  "entry": "main.js",
+  "permissions": [
+    "commands"
+  ],
+  "contributes": {}
+}

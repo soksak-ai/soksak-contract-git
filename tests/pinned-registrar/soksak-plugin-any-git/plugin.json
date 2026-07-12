@@ -1,0 +1,21 @@
+{
+  "spec": "soksak-spec-plugin@0.0.1",
+  "id": "soksak-plugin-any-git",
+  "name": {
+    "en": "An implementer",
+    "ko": "어떤 구현체"
+  },
+  "version": "0.0.1",
+  "description": {
+    "en": "Declares the contract so the consumer audit has an implementer to recognize a name-pin against.",
+    "ko": "소비자 감사가 이름-핀을 판별할 대상이 되도록 계약을 선언합니다."
+  },
+  "entry": "main.js",
+  "permissions": [
+    "commands"
+  ],
+  "implements": [
+    "soksak-git-spec"
+  ],
+  "contributes": {}
+}

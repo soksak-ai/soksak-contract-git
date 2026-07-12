@@ -39,11 +39,26 @@ a name-pin is not a legal new coupling).
 
 **No implementer is a loud state.** A consumer that finds none refuses with its own error naming the
 contract, never a silent fallback and never a private git spawn. A consumer that keeps a git runner
-"just in case" has kept the duplication this contract exists to end.
+"just in case" has kept the duplication this contract exists to end. A silent empty answer is the
+worst of the three: "no changed files" and "no git" are different facts, and a consumer that returns
+the first when it means the second has lied in the direction a human will not question.
 
 **A second implementer is legal.** Nothing here is single-implementer: `@1` is a surface, and two
 plugins may serve it. A consumer that assumes exactly one has assumed a fact the contract does not
 promise; it takes the first it is given, or lets the user pick.
+
+**The consumer's code names no implementer.** This is scored (§8): a plugin that speaks this
+contract's id and also writes `plugin.<implementer-id>.<command>` has kept the coupling and added a
+discovery call for show.
+
+> **A note on the host's cross-plugin gate.** At the time of writing, the core admits a
+> plugin→plugin command call only when the *target's plugin id* appears in the caller's manifest
+> `dependencies`. A consumer of this contract therefore still carries that one line, and cannot
+> reach its provider without it — the discovery above resolves the implementer, and the gate then
+> checks the name. That line is the host's requirement, not this contract's: it is the last name-pin
+> and it is confined to the manifest, where the audit can see it. It goes when the core accepts a
+> contract-pin on the consumer side, and no consumer's *code* changes on that day, because no
+> consumer's code ever named an implementer.
 
 ## 2. Repository addressing
 
@@ -269,3 +284,15 @@ flags, and the `--` path boundary are all facts about those invocations, and all
 **The suite must fail on an empty implementer.** A stub that declares the contract and registers
 nothing scores zero, loudly. A conformance suite that a stub can pass is scoring nothing, and that
 check is itself part of the suite.
+
+### The consumer audit
+
+Conformance runs in both directions. The **consumer audit** (`tests/consumers.test.mjs`) reads every
+plugin in the registrar that speaks this contract's id and refuses two things:
+
+- a consumer that resolves an implementer and then calls one **by name** anyway — the discovery was
+  decoration, and a second implementer would still be ignored;
+- a consumer that quotes the contract id and **never resolves** anything — the id was a comment.
+
+It, too, is scored against its own defects: fixture consumers carrying exactly those two faults must
+fail it, or the audit is measuring nothing.

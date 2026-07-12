@@ -34,6 +34,15 @@ about those invocations rather than taken on trust.
 The first thing the suite does is score a **stub** that declares the contract and implements none of
 it. If the stub passes anything, the suite is measuring nothing, and that is a failure of the suite.
 
+## The consumer audit
+
+`npm test` also runs the other direction: every plugin in the registrar that speaks this contract's
+id must resolve an implementer through `plugin.implementers` and must never write
+`plugin.<implementer-id>.<command>` in its code. A consumer that discovers an implementer and then
+calls one by name has kept the coupling and added a discovery call for show; a consumer that quotes
+the contract id and resolves nothing has written a comment. Fixture consumers carrying exactly those
+two faults must fail the audit — otherwise the audit is measuring nothing either.
+
 ## Consuming the contract
 
 An implementer declares it:

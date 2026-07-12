@@ -6,7 +6,7 @@
 // the lifecycle it is — a surface that can create but not reclaim has not implemented this contract.
 import path from "node:path";
 import { BASE_BRANCH, FEAT_BRANCH, FEAT_SUBJECT, MAIN_SUBJECT } from "./fixture.js";
-import { contains, count, lacks, sha, setBy } from "./expect.js";
+import { contains, count, lacks, nonEmpty, pred, sha, setBy } from "./expect.js";
 
 const ok = (data) => ({ ok: true, data });
 const refuses = (code) => ({ ok: false, code });
@@ -86,7 +86,7 @@ export const cases = [
       {
         cmd: "log",
         params: (fx) => ({ path: fx.repo, limit: 5 }),
-        expect: () => ok({ commits: [{ hash: sha(), short: contains(""), subject: MAIN_SUBJECT, author: "Fixture" }] }),
+        expect: () => ok({ commits: [{ hash: sha(), short: nonEmpty(), subject: MAIN_SUBJECT, author: "Fixture" }] }),
       },
     ],
   },
@@ -322,24 +322,19 @@ export const cases = [
         expect: () => ok({ files: count(0) }),
       },
       {
+        // The merge is --no-ff by default, so the branch's own commit is still in the history:
+        // the root commit, the branch commit, and the merge. A fast-forward would erase the middle
+        // one, which is exactly what a review that approved a branch must not lose.
         cmd: "log",
-        params: (fx) => ({ path: fx.mergeRepo, limit: 3 }),
-        expect: () => ok({ commits: count(3) }), // the merge, the branch commit, the root commit
-      },
-    ],
-  },
-  {
-    id: "merge.subjectSurvives",
-    section: "merge",
-    steps: [
-      {
-        cmd: "show",
-        params: (fx) => ({ path: fx.mergeRepo, commit: "HEAD^2" }),
-        expect: () => ok({ meta: { subject: FEAT_SUBJECT } }),
+        params: (fx) => ({ path: fx.mergeRepo, limit: 5 }),
+        expect: () => ok({ commits: mergedHistory }),
       },
     ],
   },
 ];
+
+const mergedHistory = pred("3 commits, including the branch's own", (v) =>
+  Array.isArray(v) && v.length === 3 && v.some((c) => c?.subject === FEAT_SUBJECT));
 
 // ── the execution convention (SPEC §3) ────────────────────────────────────────
 // Scored over every invocation the implementer made through the process capability it was handed.
