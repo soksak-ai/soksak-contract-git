@@ -142,15 +142,37 @@ plus `data` on success. Declared codes:
 | `INVALID_BRANCH` | A branch name failed the whitelist (§3). Nothing was invoked. |
 | `INVALID_PATH` | A path is not repository-relative (§3). Nothing was invoked. |
 | `INVALID_URL` | A clone URL is option-shaped or carries credentials (§3). Nothing was invoked. |
-| `GIT_ERROR` | git itself refused. `message` carries git's own `stderr`, **unparsed**. |
+| `GIT_ERROR` | git itself refused. `message` is a sentence; git's own words ride in `data.detail`, **unparsed**. |
 
 An implementer MAY add codes. A consumer MUST NOT require them, and MUST NOT parse `message` — the
 message is for a human, and the code is the machine's fact.
 
-**`GIT_ERROR` carries git's words, and the implementer adds none of its own.** The stderr is passed
-through: it is the only honest account of why git refused, and an implementer that summarizes it has
-replaced a cause with a guess. It is never parsed to make a decision (§3) — with the single sanctioned
-exception in §5.
+**`GIT_ERROR` carries git's words, and the implementer adds none of its own.** They ride in
+`data.detail`, whole and unparsed: they are the only honest account of why git refused, and an
+implementer that summarizes them has replaced a cause with a guess. They are never parsed to make a
+decision (§3) — with the single sanctioned exception in §5.
+
+They do not ride in `message`. `message` is the human line and the command owns it
+(`docs/MESSAGE-PROTOCOL.md`); engine dialect on that line is read as the app's own voice — a
+storage engine's "out of memory" gets read as "the app died". So: a sentence for the human,
+git's text for the machine, and nothing lost either way.
+
+**"git's words" means whichever stream git chose.** This is not a formality. git narrates a merge
+conflict on **stdout** and leaves stderr empty:
+
+```
+$ git merge --no-ff feat   # rc=1
+stdout: Auto-merging f.txt
+        CONFLICT (content): Merge conflict in f.txt
+        Automatic merge failed; fix conflicts and then commit the result.
+stderr: (0 bytes)
+```
+
+while it reports a fatal on **stderr** (`fatal: invalid gitfile format: …`, stdout empty). An
+implementer that reads only stderr answers a conflict with `git exit 1` — the one message that
+tells a human nothing, in the one case where git had already said exactly what was wrong. So the
+detail is taken from the stream that is not empty. Still no parsing: the implementer chooses a
+stream, never a substring.
 
 **Can that text leak a secret?** The judgment, and it is the reason for the `INVALID_URL` rule above:
 a secret can only appear in git's stderr if the implementer put it in the invocation, and the only

@@ -70,6 +70,28 @@ function dirty(root) {
   write(root, "u.txt", "u1\n"); // untracked
 }
 
+// A repository whose branch cannot be merged: both sides changed the same line. git narrates that
+// on stdout and leaves stderr empty — the case that separates "carry git's words" from "carry
+// git's stderr".
+export const CONFLICT_BRANCH = "conflict/x";
+
+function buildConflictRepo(root) {
+  fs.mkdirSync(root, { recursive: true });
+  git(root, "init", "-q", "-b", BASE_BRANCH);
+  write(root, "f.txt", "base\n");
+  git(root, "add", "-A");
+  git(root, "commit", "-q", "-m", "Add f");
+
+  git(root, "checkout", "-q", "-b", CONFLICT_BRANCH);
+  write(root, "f.txt", "theirs\n");
+  git(root, "commit", "-q", "-am", "Change f on the branch");
+
+  git(root, "checkout", "-q", BASE_BRANCH);
+  write(root, "f.txt", "ours\n");
+  git(root, "commit", "-q", "-am", "Change f on the base");
+  return root;
+}
+
 export function build(root = FIXTURE_ROOT) {
   fs.rmSync(root, { recursive: true, force: true });
   fs.mkdirSync(root, { recursive: true });
@@ -80,6 +102,9 @@ export function build(root = FIXTURE_ROOT) {
   // A second, clean repository of the same shape — `merge` mutates, and a mutated fixture would
   // make every case that runs after it depend on the order the suite happened to run in.
   const mergeRepo = buildRepo(path.join(root, "merge-repo"));
+
+  // A merge that cannot succeed — the conflict text is git's, and it goes to stdout.
+  const conflictRepo = buildConflictRepo(path.join(root, "conflict-repo"));
 
   // Outside any repository.
   const plain = path.join(root, "plain");
@@ -94,7 +119,7 @@ export function build(root = FIXTURE_ROOT) {
   fs.mkdirSync(broken, { recursive: true });
   fs.writeFileSync(path.join(broken, ".git"), "this is not a gitfile\n");
 
-  return { root, repo, mergeRepo, plain, broken };
+  return { root, repo, mergeRepo, conflictRepo, plain, broken };
 }
 
 export function remove(root = FIXTURE_ROOT) {

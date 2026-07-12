@@ -5,7 +5,7 @@
 // A case is a sequence of steps so that a lifecycle (add a worktree, see it, remove it) is scored as
 // the lifecycle it is — a surface that can create but not reclaim has not implemented this contract.
 import path from "node:path";
-import { BASE_BRANCH, FEAT_BRANCH, FEAT_SUBJECT, MAIN_SUBJECT } from "./fixture.js";
+import { BASE_BRANCH, CONFLICT_BRANCH, FEAT_BRANCH, FEAT_SUBJECT, MAIN_SUBJECT } from "./fixture.js";
 import { contains, count, lacks, nonEmpty, pred, sha, setBy } from "./expect.js";
 
 const ok = (data) => ({ ok: true, data });
@@ -319,6 +319,34 @@ const baseCases = [
     ],
   },
 
+  {
+    // A conflict is git's to explain, and git explains it on stdout with stderr empty. An
+    // implementer that reads only stderr answers "git exit 1" — the one message that tells a human
+    // nothing, in the case where git had already said exactly what was wrong. The words go in
+    // data.detail; the human line stays a sentence (§4).
+    id: "merge.conflict",
+    section: "merge",
+    steps: [
+      {
+        cmd: "merge",
+        params: (fx) => ({ path: fx.conflictRepo, target: CONFLICT_BRANCH }),
+        expect: () =>
+          ({
+            ok: false,
+            code: "GIT_ERROR",
+            message: pred("a human sentence, not git's dialect", (v) => typeof v === "string" && v.length > 0 && !v.includes("CONFLICT")),
+            data: { detail: contains("CONFLICT (content)") },
+          }),
+      },
+      {
+        // The repository is left exactly as git left it: mid-merge, with the conflict to resolve.
+        // An implementer that auto-aborted would have thrown away the only state a human can act on.
+        cmd: "status",
+        params: (fx) => ({ path: fx.conflictRepo }),
+        expect: () => ok({ entries: setBy("path", [{ path: "f.txt", status: "conflicted" }]) }),
+      },
+    ],
+  },
   {
     id: "merge.branch",
     section: "merge",
