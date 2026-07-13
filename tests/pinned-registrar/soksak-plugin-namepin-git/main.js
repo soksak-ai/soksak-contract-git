@@ -1,5 +1,5 @@
 // A consumer that quotes the contract and pins the name anyway — the defect the audit must catch.
-const GIT_CONTRACT = "soksak-git-spec";
+const GIT_CONTRACT = "soksak-spec-plugin-git";
 
 export default {
   activate(ctx) {

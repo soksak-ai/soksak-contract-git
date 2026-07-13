@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export const CONTRACT_ID = "soksak-git-spec";
+export const CONTRACT_ID = "soksak-spec-plugin-git";
 
 // Default registrar: SOKSAK_HOME/plugins (declare + discover, NAMING §4a). No symlinks, no ../..
 export function registrarDir() {

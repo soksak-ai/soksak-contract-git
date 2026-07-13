@@ -15,7 +15,10 @@
     "commands"
   ],
   "implements": [
-    "soksak-git-spec"
+    {
+      "id": "soksak-spec-plugin-git",
+      "version": "0.0.1"
+    }
   ],
   "contributes": {}
 }

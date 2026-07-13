@@ -1,4 +1,4 @@
-// The acceptance suite for soksak-git-spec.
+// The acceptance suite for soksak-spec-plugin-git.
 //
 // It runs twice, on purpose:
 //   1. against a stub that declares the contract and implements nothing — every command case MUST

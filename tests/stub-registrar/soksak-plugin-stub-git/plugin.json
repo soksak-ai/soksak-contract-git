@@ -7,15 +7,18 @@
   },
   "version": "0.0.1",
   "description": {
-    "en": "Declares soksak-git-spec and implements none of it. Exists so the acceptance suite can prove it fails an empty implementer — a suite a stub can pass is scoring nothing.",
-    "ko": "soksak-git-spec 을 선언만 하고 아무것도 구현하지 않습니다. 적합성 시험이 빈 구현체에 대해 실패함을 증명하기 위해 존재합니다."
+    "en": "Declares soksak-spec-plugin-git and implements none of it. Exists so the acceptance suite can prove it fails an empty implementer — a suite a stub can pass is scoring nothing.",
+    "ko": "soksak-spec-plugin-git 을 선언만 하고 아무것도 구현하지 않습니다. 적합성 시험이 빈 구현체에 대해 실패함을 증명하기 위해 존재합니다."
   },
   "entry": "main.js",
   "permissions": [
     "commands"
   ],
   "implements": [
-    "soksak-git-spec"
+    {
+      "id": "soksak-spec-plugin-git",
+      "version": "0.0.1"
+    }
   ],
   "contributes": {}
 }

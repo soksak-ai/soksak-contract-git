@@ -1,4 +1,4 @@
-# soksak-git-spec
+# soksak-spec-plugin-git
 
 The **git domain contract**: the command surface a plugin exposes when it owns git execution for a
 soksak project, and the promises that surface carries.
@@ -20,27 +20,27 @@ a library instead of the CLI conforms exactly as well, and the acceptance suite 
 difference except where this document makes the execution convention itself normative (§3).
 
 **The repo is not the contract id.** The repository is `soksak-contract-git` (NAMING §4a: kind
-`contract`, bare domain). The id is `soksak-git-spec` (NAMING §8: `<scope>-spec@<major>`). This
+`contract`, bare domain). The id is `soksak-spec-plugin-git` (NAMING §8: `soksak-spec-<kind>-<domain>@<major>`). This
 repository ships nothing: no `dist`, no registry entry, no installed artifact. Implementers and
 consumers take it as a dev-dependency, and that is the only way it is consumed.
 
 **On an implementer's name.** The `-core` in `soksak-plugin-git-core` is historical. It does not mean
 "part of the core", and it confers no standing: git left the core, and this contract — not that
 plugin — is now the domain's single truth. It is one implementer among however many declare
-`soksak-git-spec`, and nothing in this document knows its name.
+`soksak-spec-plugin-git`, and nothing in this document knows its name.
 
 ## 1. Discovery
 
 An implementer declares the contract in its manifest:
 
 ```json
-{ "implements": ["soksak-git-spec"] }
+{ "implements": ["soksak-spec-plugin-git"] }
 ```
 
 A consumer resolves implementers by contract id alone:
 
 ```
-sok plugin.implementers '{"contract":"soksak-git-spec"}'
+sok plugin.implementers '{"contract":"soksak-spec-plugin-git"}'
 ```
 
 and addresses whichever it finds as `plugin.<discovered id>.<command>`. A consumer that hard-codes
@@ -347,7 +347,7 @@ the root before anything is removed.
 An implementer is judged by the acceptance suite in this repository, not by inspection.
 
 The suite **discovers** its subject: it scans the registrar for a manifest declaring
-`implements: ["soksak-git-spec"]`, loads that plugin's entry, and drives it through the commands
+`implements: ["soksak-spec-plugin-git"]`, loads that plugin's entry, and drives it through the commands
 it registers. The suite never names an implementer — it cannot, and neither may a consumer.
 
 It scores against **declared expectations**, not against git's live answer: the fixture repository is

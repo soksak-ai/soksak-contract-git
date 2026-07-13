@@ -1,6 +1,6 @@
 # soksak-contract-git
 
-The git domain's contract: **`soksak-git-spec`**.
+The git domain's contract: **`soksak-spec-plugin-git`**.
 
 - **[SPEC.md](SPEC.md)** — the contract. English is canonical.
 - **`tests/conformance.test.mjs`** — the acceptance suite that decides whether an implementer conforms.
@@ -8,7 +8,7 @@ The git domain's contract: **`soksak-git-spec`**.
 **This repository ships nothing.** No `dist`, no registry entry, no installed artifact — it holds a
 contract's text and the suite that scores it, and it is consumed only as a dev-dependency by the
 plugins the contract governs (NAMING §4a, kind `contract`). The repository is named after the domain
-it standardizes; the contract id it defines (`soksak-git-spec`) is an identifier string, not a
+it standardizes; the contract id it defines (`soksak-spec-plugin-git`) is an identifier string, not a
 repository name, and the two differ on purpose.
 
 ## Running the suite
@@ -18,7 +18,7 @@ npm test          # or: bash scripts/gate.sh
 ```
 
 The suite **discovers its subject**: it scans `$SOKSAK_HOME/plugins` (default `~/.soksak-dev/plugins`)
-for a manifest declaring `implements: ["soksak-git-spec"]` and drives whatever it finds. It never
+for a manifest declaring `implements: ["soksak-spec-plugin-git"]` and drives whatever it finds. It never
 names a plugin — a suite that imported a known implementer would be scoring that implementer, not
 the contract.
 
@@ -48,13 +48,13 @@ two faults must fail the audit — otherwise the audit is measuring nothing eith
 An implementer declares it:
 
 ```json
-{ "implements": ["soksak-git-spec"] }
+{ "implements": ["soksak-spec-plugin-git"] }
 ```
 
 A consumer never names the implementer. It resolves one by contract id:
 
 ```
-sok plugin.implementers '{"contract":"soksak-git-spec"}'
+sok plugin.implementers '{"contract":"soksak-spec-plugin-git"}'
 ```
 
 and addresses it as `plugin.<discovered id>.<command>`. Finding none is a loud refusal — not a

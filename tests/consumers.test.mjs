@@ -1,4 +1,4 @@
-// The consumer-side gate for soksak-git-spec (SPEC §1).
+// The consumer-side gate for soksak-spec-plugin-git (SPEC §1).
 //
 // The acceptance suite scores the implementer. This scores everyone else: a plugin that speaks the
 // contract's name must not also speak an implementer's. Without this, the convergence is a habit

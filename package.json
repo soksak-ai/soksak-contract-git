@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The git domain contract (soksak-git-spec): its text and its acceptance suite. Ships no runtime artifact — consumed as a dev-dependency by the units it governs.",
+  "description": "The git domain contract (soksak-spec-plugin-git): its text and its acceptance suite. Ships no runtime artifact — consumed as a dev-dependency by the units it governs.",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "gate": "bash scripts/gate.sh"
